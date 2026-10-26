@@ -1,0 +1,10 @@
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+.git/
+.agents/
+.codex/
+.pytest_cache/
+tests/
+src/tests/
