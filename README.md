@@ -81,3 +81,12 @@ and measures only between the first and last samples in the window.
 ```sh
 PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
 ```
+
+## Push the multiarch image to harbour
+
+```sh
+ docker buildx build --no-cache \
+  --platform linux/amd64,linux/arm64 \
+  -t cloud-193-225-250-99.sztaki.science-cloud.hu/swarchestrate/innorenew/app-metrics:latest \
+  --push .
+```
