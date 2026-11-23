@@ -12,7 +12,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--dummy", action="store_true",
-        help="also increment both counters every five seconds",
+        help="also increment the sent counter every five seconds",
     )
     args = parser.parse_args(argv)
     stop = Event()
@@ -28,7 +28,6 @@ def main(argv=None):
         if args.dummy:
             while not stop.wait(5):
                 counters.increment_sent()
-                counters.increment_processed()
         else:
             stop.wait()
     finally:

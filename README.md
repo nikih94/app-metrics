@@ -1,17 +1,10 @@
 # Application metrics prototype
 
 A Python Prometheus exporter for one InnoRenew device per container.
-Both counters start at zero and increase through HTTP POST calls.
-Scraping does not change them. Values are stored in memory and reset on restart.
-
-All counters share one Prometheus registry and are exposed at `/metrics`:
-
-- `app_requests_sent_total`
-- `app_requests_processed_total`
-
-`counters.py` owns the counters and their increment methods. `exporter.py`
-serves and increments them over HTTP. `main.py` connects both and optionally
-runs dummy increments. Creation timestamps are disabled.
+It exposes `app_requests_sent_total` at `/metrics` to count sound classification
+requests sent to other sensors. The counter starts at zero, stays in memory,
+and resets on restart. Scraping leaves its value unchanged.
+Creation timestamps are disabled.
 
 ## Run locally
 
@@ -23,7 +16,7 @@ python3 -m venv .venv
 .venv/bin/python src/main.py
 ```
 
-Add `--dummy` to increment both counters by one every five seconds:
+Add `--dummy` to increment the sent counter by one every five seconds:
 
 ```sh
 .venv/bin/python src/main.py --dummy
@@ -34,59 +27,52 @@ HTTP increments are available in both modes and add to dummy increments.
 ## Run with Docker
 
 ```sh
-docker build -t app-metrics:prototype .
-docker run --rm --name app-metrics -p 9009:9009 app-metrics:prototype
+docker build -t app-metrics:latest .
+docker run --rm --name app-metrics -p 9009:9009 app-metrics:latest
 ```
 
 For dummy mode:
 
 ```sh
-docker run --rm --name app-metrics -p 9009:9009 app-metrics:prototype --dummy
+docker run --rm --name app-metrics -p 9009:9009 app-metrics:latest --dummy
 ```
 
-Stop with Ctrl+C, or `docker stop app-metrics` from another terminal.
+
+## Run with Docker Compose
+
+Example of the docker compose in --dummy mode.
+
+```yaml
+services:
+  app-metrics:
+    build: .
+    image: app-metrics:latest
+    command: ["--dummy"]
+    ports:
+      - "9009:9009"
+```
+
+Start it with `docker compose up --build`. The counter increments every five
+seconds, and you can read it at `http://localhost:9009/metrics`. Stop with Ctrl+C
+and remove the container with `docker compose down`.
 
 ## Increment and read metrics
 
-Each POST adds one to its corresponding counter and returns `204 No Content`.
+Each POST to `/sent` adds one to the sent counter and returns `204 No Content`.
 No request body is needed:
 
 ```sh
 curl -X POST http://localhost:9009/sent
-curl -X POST http://localhost:9009/processed
 ```
 
 Repeated requests each count separately; retries are not deduplicated.
-GET requests to `/sent` or `/processed` return `405 Method Not Allowed`.
+GET requests to `/sent` return `405 Method Not Allowed`.
 POST requests to `/metrics` also return `405`; unknown paths return `404`.
 
-Read both counters without changing them:
+Read the current count:
 
 ```sh
 curl http://localhost:9009/metrics
 ```
 
-The SAT uses port 9009 and `/metrics` for both collectors, selecting each
-counter by its metric name. Set its `app-metrics`
-image reference to your published container image before deploying.
-Monitoring identifies each device through its scrape target.
 
-The dummy five-second increments are independent of the SAT's ten-second
-collection interval. Window aggregation is performed by monitoring, not this
-service. The draft SAT's `MAX - MIN` calculation does not handle counter resets
-and measures only between the first and last samples in the window.
-
-## Tests
-
-```sh
-PYTHONPATH=src .venv/bin/python -m unittest discover -s tests -v
-```
-
-## Push the multiarch image to harbour
-
-```sh
- docker buildx build --no-cache \
-  --platform linux/amd64,linux/arm64 \
-  -t cloud-193-225-250-99.sztaki.science-cloud.hu/swarchestrate/innorenew/app-metrics:latest \
-  --push .
-```

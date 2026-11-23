@@ -1,4 +1,4 @@
-"""HTTP exposure and increment endpoints for the shared counters."""
+"""HTTP exposure and increment endpoints for the sent counter."""
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
@@ -11,15 +11,10 @@ disable_created_metrics()
 
 
 def create_server(counters: Counters, host="0.0.0.0", port=9009):
-    increments = {
-        "/sent": counters.increment_sent,
-        "/processed": counters.increment_processed,
-    }
-
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             path = urlsplit(self.path).path
-            if path in increments:
+            if path == "/sent":
                 self.method_not_allowed("POST")
                 return
             if path != "/metrics":
@@ -38,12 +33,11 @@ def create_server(counters: Counters, host="0.0.0.0", port=9009):
             if path == "/metrics":
                 self.method_not_allowed("GET")
                 return
-            increment = increments.get(path)
-            if increment is None:
+            if path != "/sent":
                 self.send_error(404, "Unknown endpoint")
                 return
 
-            increment()
+            counters.increment_sent()
             self.send_response(204)
             self.end_headers()
 
